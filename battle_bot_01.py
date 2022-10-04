@@ -1,7 +1,7 @@
 import ledshim
 import multiprocessing
 import RPi.GPIO as GPIO
-#from adafruit_motorkit import MotorKit
+from adafruit_motorkit import MotorKit
 from time import sleep
 import gamepad_constants as gp
 from evdev import InputDevice, categorize, ecodes
@@ -17,14 +17,6 @@ kit.motor2.throttle = 0
 kit.motor3.throttle = 0
 light_toggle = 0
 
-GPIO.setwarnings(False)
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(7, GPIO.OUT)
-GPIO.setup(11, GPIO.OUT)
-pin11 = GPIO.PWM(11, 100)
-pin7 = GPIO.PWM(7, 100)
-pin11.start(50)
-pin7.start(50)
 
 class BackupBeep(multiprocessing.Process):
     
@@ -115,11 +107,7 @@ for event in gp.gamepad.read_loop():
         if event.value == 1:
             if event.code == gp.southBtn:
                 print("A")
-                if __name__ == '__main__':
-                    process = BackupBeep()
-                    process.start()
-                    print('Running...')
-                    
+                
             elif event.code == gp.leftBump:
                 print("lBump")
                 kit.motor1.throttle = -1
@@ -162,10 +150,7 @@ for event in gp.gamepad.read_loop():
                 kit.motor3.throttle = 0
             elif event.code == gp.southBtn:
                 print("Released")
-                if __name__ == '__main__':
-                    process = BackupBeep()
-                    process.shutdown()
-                    print('Beeping Stopped...')
+                
                 
     elif event.type == ecodes.EV_ABS:
         absevent = categorize(event)
