@@ -1,7 +1,7 @@
 import ledshim
 import multiprocessing
 import RPi.GPIO as GPIO
-from adafruit_motorkit import MotorKit
+#from adafruit_motorkit import MotorKit
 from time import sleep
 import gamepad_constants as gp
 from evdev import InputDevice, categorize, ecodes
@@ -18,7 +18,7 @@ kit.motor3.throttle = 0
 light_toggle = 0
 
 GPIO.setwarnings(False)
-#GPIO.setmode(GPIO.BOARD)
+GPIO.setmode(GPIO.BOARD)
 GPIO.setup(7, GPIO.OUT)
 GPIO.setup(11, GPIO.OUT)
 pin11 = GPIO.PWM(11, 100)
