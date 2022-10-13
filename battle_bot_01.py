@@ -1,45 +1,39 @@
 import ledshim
 import multiprocessing
-import RPi.GPIO as GPIO
 from adafruit_motorkit import MotorKit
 from time import sleep
-import gamepad_constants as gp
+from os import path
 from evdev import InputDevice, categorize, ecodes
 
-#blue, yellow, red, green
+
+#DEFINE VARIABLES
 
 kit = MotorKit()
-#m1 = kit.motor1 #left motor
-#m2 = kit.motor2 # right motor
+gamepad = ""
+southBtn = 304
+eastBtn = 305
+northBtn = 308
+westBtn = 307
+startBtn = 315
+selBtn = 314
+leftBump = 310
+rightBump = 311
+hatY = 'ABS_HAT0Y'
+hatX = 'ABS_HAT0X'
+leftTrigger = 'ABS_BRAKE'
+rightTrigger = 'ABS_GAS'
+leftStickY = 'ABS_Y'
+leftStickX = 'ABS_X'
+rightStickY = 'ABS_RZ'
+righStickX = 'ABS_Z'
 
+#SET ALL MOTORS AND DEVICES TO INITIAL STATE
 kit.motor1.throttle = 0
 kit.motor2.throttle = 0
 kit.motor3.throttle = 0
 light_toggle = 0
 
-
-class BackupBeep(multiprocessing.Process):
-    
-    def __init__(self, ):
-        multiprocessing.Process.__init__(self)
-        self.exit = multiprocessing.Event()
-    
-    def run(self):
-        while not self.exit.is_set():
-            GPIO.output(7, GPIO.HIGH)
-            GPIO.output(11, GPIO.LOW)
-            
-            pin7.ChangeFrequency(523.25)
-            sleep(1)
-            
-            GPIO.output(7, GPIO.LOW)
-            sleep(1)
-            
-    def shutdown(self):
-        GPIO.output(7, GPIO.LOW)
-        GPIO.output(11, GPIO.LOW)
-        GPIO.cleanup()
-
+#CLASS FOR MULTITASKING - CREATES THE ABILITY TO TURN THE LIGHTS ON AND OFF WHILE DRIVING
 class PoliceFlash(multiprocessing.Process):
 
     def __init__(self, ):
@@ -74,7 +68,7 @@ class PoliceFlash(multiprocessing.Process):
         print('police stopped')
         self.exit.set()
 
-
+#FUNCTION FOR INITIAL STARTUP INDICATOR LIGHT
 def startup():
     ledshim.set_multiple_pixels(range(0, 7), (0, 100, 255))    
     ledshim.show()
@@ -99,103 +93,122 @@ def startup():
     ledshim.clear()
     ledshim.show()
 
+#FUNCTION FOR RED FLASHING LIGHTS ON ERROR
+def redBlink():
+    ledshim.set_multiple_pixels(range(0,28), (255, 0, 0))
+    ledshim.show()
+    sleep(0.25)
+    ledshim.clear()
+    ledshim.show()
+    sleep(0.25)
+    ledshim.set_multiple_pixels(range(0,28), (255, 0, 0))
+    ledshim.show()
+    sleep(0.25)
+    ledshim.clear()
+    ledshim.show()
+    sleep(0.5)
     
-startup()
-
-for event in gp.gamepad.read_loop():
-    if event.type == ecodes.EV_KEY:
-        if event.value == 1:
-            if event.code == gp.southBtn:
-                print("A")
-                
-            elif event.code == gp.leftBump:
-                print("lBump")
-                kit.motor1.throttle = -1
-            elif event.code == gp.rightBump:
-                print("rBump")
-                kit.motor3.throttle = -1
-            elif event.code == gp.selBtn:
-                print("Select")
-                
-                if __name__ == '__main__':
-                    if light_toggle == 0:
-                        process = PoliceFlash()
-                        process.start()
-                        print('Running...')
-                        light_toggle = 1
-                    else:
-                        process.shutdown()
-                        print('Program shutdown')
-                        light_toggle = 0
+#FUNCTION FOR CONNECTING BLUETOOTH CONTROLLER WITH FAILSAFE
+def checkController():
+    contTrue = False
+    checkPath = '/dev/input/event2'
+    
+    while contTrue == False:
+        try:
+            print("Trying to connect")
+            gamepad = InputDevice(checkPath)
+            print("Gamepad connected.")
+            print()
+            print(gamepad)
+            contTrue = True
+            print("Sending to startup")
+            startup()
+            #added
+            print("Sent to startup")
+            #return gamepad            
+            
+        except:
+            print("No devices connected!")
+            print()
+            redBlink()
+            print("Blinked")
+            sleep(1)
+            
+            
+#FUNCTION FOR MAIN DRIVE AND TOGGLING LIGHTS/ SHUTDOWN
+def goBot():
+    while True:
+        print("In goBot")
+        try:
+            print("Trying to run goBot")
+            gamepad = InputDevice('/dev/input/event2')
+            for event in gamepad.read_loop():
+                if event.type == ecodes.EV_KEY:
+                    if event.value == 1:
+                        if event.code == southBtn:
+                            print("A")
+                            
+                        elif event.code == leftBump:
+                            print("lBump")
+                            kit.motor1.throttle = -1
+                        elif event.code == rightBump:
+                            print("rBump")
+                            kit.motor3.throttle = -1
+                        elif event.code == selBtn:
+                            print("Select")
+                            
+                            if __name__ == '__main__':
+                                if light_toggle == 0:
+                                    process = PoliceFlash()
+                                    process.start()
+                                    print('Running...')
+                                    light_toggle = 1
+                                else:
+                                    process.shutdown()
+                                    print('Program shutdown')
+                                    light_toggle = 0                                    
+                                
+                        elif event.code == startBtn:
+                            print("Start")
+                            redBlink()
+                            kit.motor1.throttle = 0
+                            kit.motor2.throttle = 0
+                            kit.motor3.throttle = 0
+                            quit()
                         
-                    
-            elif event.code == gp.startBtn:
-                print("Start")
-                ledshim.set_multiple_pixels(range(0,28), (255, 0, 0))
-                ledshim.show()
-                sleep(0.5)
-                ledshim.clear()
-                ledshim.show()
-                kit.motor1.throttle = 0
-                kit.motor2.throttle = 0
-                kit.motor3.throttle = 0
-                quit()
-            
-        elif event.value == 0:
-            if event.code == gp.leftBump:
-                print("Released")
-                kit.motor1.throttle = 0
-            elif event.code == gp.rightBump:
-                print("Released")
-                kit.motor3.throttle = 0
-            elif event.code == gp.southBtn:
-                print("Released")
-                
-                
-    elif event.type == ecodes.EV_ABS:
-        absevent = categorize(event)
-        #if ecodes.bytype[absevent.event.type][absevent.event.code] == "ABS_X":
-        #    if absevent.event.value == 0:
-        #        m2.forwards()
-        #        m1.backwards()
-         #       print("Left Stick | Left")
-         #   elif absevent.event.value == 65535:
-        #        m2.backwards()
-          #      m1.forwards()
-         #       print("Left Stick | Right")
-          #  elif absevent.event.value == 32768:
-       #         m1.stop()
-        #        m2.stop()
-         #       print("Left Stick | Center")
-                
-        if ecodes.bytype[absevent.event.type][absevent.event.code] == gp.leftTrigger:
-            ev = absevent.event.value
-            if ev > 1000:
-                ev = 1000
-            print(ev/1000)
-            kit.motor1.throttle = ev/1000
-            
-        elif ecodes.bytype[absevent.event.type][absevent.event.code] == gp.rightTrigger:
-            ev = absevent.event.value
-            if ev > 1000:
-                ev = 1000
-            print(ev/1000)
-            kit.motor3.throttle = ev/1000        
-       # elif ecodes.bytype[absevent.event.type][absevent.event.code] == "ABS_Y":
-         #   if absevent.event.value == 0:
-         #       m1.forwards()
-          #      m2.forwards()
-          #      print("Left Stick | Up")
-           # elif absevent.event.value == 65535:
-         #       m1.backwards()
-          #      m2.backwards()
-         #       print("Left Stick | Down")
-         #   elif absevent.event.value == 32768:
-          #      m1.stop()
-           #     m2.stop()
-          #      print("Left Stick | Center")
+                    elif event.value == 0:
+                        if event.code == leftBump:
+                            print("Released")
+                            kit.motor1.throttle = 0
+                        elif event.code == rightBump:
+                            print("Released")
+                            kit.motor3.throttle = 0
+                        elif event.code == southBtn:
+                            print("Released")                            
+                            
+                elif event.type == ecodes.EV_ABS:
+                    absevent = categorize(event)
+                    if ecodes.bytype[absevent.event.type][absevent.event.code] == leftTrigger:
+                        ev = absevent.event.value
+                        if ev > 1000:
+                            ev = 1000
+                        print(ev/1000)
+                        kit.motor1.throttle = ev/1000
+                        
+                    elif ecodes.bytype[absevent.event.type][absevent.event.code] == rightTrigger:
+                        ev = absevent.event.value
+                        if ev > 1000:
+                            ev = 1000
+                        print(ev/1000)
+                        kit.motor3.throttle = ev/1000        
+        except:
+            print("Gamepad disconnected! Please reconnect.")
+            checkController()
+
+#MAIN LOOP
+print("Testing for bluetooth controller.")
+print()
+checkController()
+goBot()
 
 
-
-#while True:
-    #explorerhat.touch.pressed(handle_pin)

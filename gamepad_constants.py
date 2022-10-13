@@ -1,9 +1,6 @@
 from evdev import InputDevice, categorize, ecodes
 import explorerhat
 
-gamepad = InputDevice('/dev/input/event2')
-
-
 southBtn = 304
 eastBtn = 305
 northBtn = 308
