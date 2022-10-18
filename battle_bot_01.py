@@ -10,6 +10,7 @@ from evdev import InputDevice, categorize, ecodes
 
 kit = MotorKit()
 gamepad = ""
+offToggle = False
 southBtn = 304
 eastBtn = 305
 northBtn = 308
@@ -26,6 +27,10 @@ leftStickY = 'ABS_Y'
 leftStickX = 'ABS_X'
 rightStickY = 'ABS_RZ'
 righStickX = 'ABS_Z'
+min = 0
+max = 65535
+
+sleep(1)
 
 #SET ALL MOTORS AND DEVICES TO INITIAL STATE
 kit.motor1.throttle = 0
@@ -158,15 +163,15 @@ def goBot():
                             print("Select")
                             
                             if __name__ == '__main__':
+                                process = PoliceFlash()
                                 if light_toggle == 0:
-                                    process = PoliceFlash()
                                     process.start()
                                     print('Running...')
                                     light_toggle = 1
                                 else:
                                     process.shutdown()
                                     print('Program shutdown')
-                                    light_toggle = 0                                    
+                                    light_toggle = 0                                  
                                 
                         elif event.code == startBtn:
                             print("Start")
@@ -174,7 +179,8 @@ def goBot():
                             kit.motor1.throttle = 0
                             kit.motor2.throttle = 0
                             kit.motor3.throttle = 0
-                            quit()
+                            offToggle = True
+                            return
                         
                     elif event.value == 0:
                         if event.code == leftBump:
@@ -187,22 +193,66 @@ def goBot():
                             print("Released")                            
                             
                 elif event.type == ecodes.EV_ABS:
-                    absevent = categorize(event)
-                    if ecodes.bytype[absevent.event.type][absevent.event.code] == leftTrigger:
-                        ev = absevent.event.value
-                        if ev > 1000:
-                            ev = 1000
-                        print(ev/1000)
-                        kit.motor1.throttle = ev/1000
+                    print('Joystick movement detected')
+                    normalizedX = 0.0
+                    normalizedY = 0.0
+                    xAxis = gamepad.absinfo(ecodes.ABS_X).value
+                    print('Captured xAxis value')
+                    yAxis = gamepad.absinfo(ecodes.ABS_Y).value
+                    print('Captured yAxis value')
+                    normalizedX = 2.0 * (xAxis - min) / (max - min) - 1.0
+                    normalizedY = -(2.0 * (yAxis - min) / (max - min) - 1.0)
+                    print('Normalized values')
+
+                    print("X: " + str(normalizedX))
+                    print("Y: " + str(normalizedY))
+                    print()
+                    rMotor = ((normalizedY) - (normalizedX))
+                    lMotor = ((normalizedY) + (normalizedX))
+                    if rMotor > 1.0:
+                        rMotor = 1.0
+                    if lMotor > 1.0:
+                        lMotor = 1.0
+                    if rMotor < -1.0:
+                        rMotor = -1.0
+                    if lMotor < -1.0:
+                        lMotor = -1.0
+                    print('RightMotor: ' + str(rMotor))
+                    print('LeftMotor: ' + str(lMotor))
+
+                    kit.motor3.throttle = rMotor
+                    kit.motor1.throttle = lMotor
+
                         
-                    elif ecodes.bytype[absevent.event.type][absevent.event.code] == rightTrigger:
-                        ev = absevent.event.value
-                        if ev > 1000:
-                            ev = 1000
-                        print(ev/1000)
-                        kit.motor3.throttle = ev/1000        
+                    # if ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickY or ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickX:
+                    #     ev = absevent.event.value
+                    #     normalizedY = 2.0 * (ev - min) / (max - min) - 1.0
+                    
+                    #elif ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickX:
+                        #ev = absevent.event.value
+                        #nromalizedX = 2.0 * (ev - min) / (max - min) - 1.0
+                        
+                    #v = (1-abs(normalizedX)) * (normalizedY/1) + normalizedY
+                    #w = (1-abs(normalizedY)) * (normalizedX/1) + normalizedX              
+                
+                    
+                    #if ecodes.bytype[absevent.event.type][absevent.event.code] == leftTrigger:
+                       # ev = absevent.event.value
+                       # if ev > 1000:
+                       #     ev = 1000
+                       # print(ev/1000)
+                      #  kit.motor1.throttle = ev/1000
+                        
+                #    elif ecodes.bytype[absevent.event.type][absevent.event.code] == rightTrigger:
+                    #    ev = absevent.event.value
+                     #   if ev > 1000:
+                      #      ev = 1000
+                       # print(ev/1000)
+                       # kit.motor3.throttle = ev/1000        
         except:
             print("Gamepad disconnected! Please reconnect.")
+            kit.motor1.throttle = 0
+            kit.motor3.throttle = 0
             checkController()
 
 #MAIN LOOP
@@ -210,5 +260,6 @@ print("Testing for bluetooth controller.")
 print()
 checkController()
 goBot()
+quit()
 
 
