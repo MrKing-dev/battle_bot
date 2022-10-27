@@ -29,6 +29,9 @@ rightStickY = 'ABS_RZ'
 righStickX = 'ABS_Z'
 min = 0
 max = 65535
+minZ = 0
+maxZ = 1023
+arcadeToggle = True
 
 sleep(1)
 
@@ -142,57 +145,71 @@ def checkController():
             
 #FUNCTION FOR MAIN DRIVE AND TOGGLING LIGHTS/ SHUTDOWN
 def goBot():
+    global arcadeToggle
     while True:
         print("In goBot")
-        try:
-            print("Trying to run goBot")
-            gamepad = InputDevice('/dev/input/event2')
-            for event in gamepad.read_loop():
-                if event.type == ecodes.EV_KEY:
-                    if event.value == 1:
-                        if event.code == southBtn:
-                            print("A")
-                            
-                        elif event.code == leftBump:
-                            print("lBump")
-                            kit.motor1.throttle = -1
-                        elif event.code == rightBump:
-                            print("rBump")
-                            kit.motor3.throttle = -1
-                        elif event.code == selBtn:
-                            print("Select")
-                            
-                            if __name__ == '__main__':
-                                process = PoliceFlash()
-                                if light_toggle == 0:
-                                    process.start()
-                                    print('Running...')
-                                    light_toggle = 1
-                                else:
-                                    process.shutdown()
-                                    print('Program shutdown')
-                                    light_toggle = 0                                  
-                                
-                        elif event.code == startBtn:
-                            print("Start")
-                            redBlink()
-                            kit.motor1.throttle = 0
-                            kit.motor2.throttle = 0
-                            kit.motor3.throttle = 0
-                            offToggle = True
-                            return
+        #try:
+        #print("Trying to run goBot")
+        gamepad = InputDevice('/dev/input/event2')
+        for event in gamepad.read_loop():
+            if event.type == ecodes.EV_KEY:
+                if event.value == 1:
+                    if event.code == southBtn:
+                        print("A")
+                        kit.motor2.throttle = 0.5
+                    elif  event.code == westBtn:
+                        kit.motor2.throttle = -0.5
                         
-                    elif event.value == 0:
-                        if event.code == leftBump:
-                            print("Released")
-                            kit.motor1.throttle = 0
-                        elif event.code == rightBump:
-                            print("Released")
-                            kit.motor3.throttle = 0
-                        elif event.code == southBtn:
-                            print("Released")                            
+                    elif event.code == leftBump:
+                        print("lBump")
+                        kit.motor1.throttle = -1
+                    elif event.code == rightBump:
+                        print("rBump")
+                        kit.motor3.throttle = -1
+                    elif event.code == northBtn:
+                        if arcadeToggle == True:
+                            arcadeToggle = False
+                            print('Switched to trigger drive')
+                        else: 
+                            arcadeToggle = True
+                            print('Switched to arcade drive')
+                    elif event.code == selBtn:
+                        print("Select")
+                        
+                        if __name__ == '__main__':
+                            process = PoliceFlash()
+                            if light_toggle == 0:
+                                process.start()
+                                print('Running police flashers')
+                                light_toggle = 1
+                            else:
+                                process.shutdown()
+                                print('Stop police flashers')
+                                light_toggle = 0                                  
                             
-                elif event.type == ecodes.EV_ABS:
+                    elif event.code == startBtn:
+                        print("Start")
+                        redBlink()
+                        kit.motor1.throttle = 0
+                        kit.motor2.throttle = 0
+                        kit.motor3.throttle = 0
+                        return
+                    
+                elif event.value == 0:
+                    if event.code == leftBump:
+                        print("Released")
+                        kit.motor1.throttle = 0
+                    elif event.code == rightBump:
+                        print("Released")
+                        kit.motor3.throttle = 0
+                    elif event.code == southBtn:
+                        print("Released")  
+                        kit.motor2.throttle = 0
+                    elif event.code == westBtn:
+                        kit.motor2.throttle = 0                          
+                        
+            elif event.type == ecodes.EV_ABS:
+                if arcadeToggle == True:
                     print('Joystick movement detected')
                     normalizedX = 0.0
                     normalizedY = 0.0
@@ -203,7 +220,7 @@ def goBot():
                     normalizedX = 2.0 * (xAxis - min) / (max - min) - 1.0
                     normalizedY = -(2.0 * (yAxis - min) / (max - min) - 1.0)
                     print('Normalized values')
-
+                    #TODO add deadzone
                     print("X: " + str(normalizedX))
                     print("Y: " + str(normalizedY))
                     print()
@@ -222,38 +239,73 @@ def goBot():
 
                     kit.motor3.throttle = rMotor
                     kit.motor1.throttle = lMotor
+                else:
+                    print('Trigger mode initialized')
+                    normalizedX = 0.0
+                    normalizedY = 0.0
+                    xAxis = gamepad.absinfo(ecodes.ABS_X).value
+                    print('Captured xAxis value')
+                    yAxisForward = gamepad.absinfo(ecodes.ABS_GAS).value
+                    yAxisReverse = gamepad.absinfo(ecodes.ABS_BRAKE).value
+                    print('Y Forward: ' + str(yAxisForward))
+                    print('Y Reverse: ' + str(yAxisReverse))
+                    yAxis = yAxisForward - yAxisReverse
+                    print('Captured trigger input')
+                    print('yAxisRaw: ' + str(yAxis))
+                    normalizedX = 2.0 * (xAxis - min) / (max - min) - 1.0
+                    normalizedY = (yAxis - minZ) / (maxZ - minZ)
+                    print('Normalized values')
+                    #TODO add deadzone
+                    print("X: " + str(normalizedX))
+                    print("Y: " + str(normalizedY))
+                    print()
+                    rMotor = ((normalizedY) - (normalizedX))
+                    lMotor = ((normalizedY) + (normalizedX))
+                    if rMotor > 0.95:
+                        rMotor = 1.0
+                    if lMotor > 0.95:
+                        lMotor = 1.0
+                    if rMotor < -0.95:
+                        rMotor = -1.0
+                    if lMotor < -0.95:
+                        lMotor = -1.0
+                    print('RightMotor: ' + str(rMotor))
+                    print('LeftMotor: ' + str(lMotor))
 
-                        
-                    # if ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickY or ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickX:
-                    #     ev = absevent.event.value
-                    #     normalizedY = 2.0 * (ev - min) / (max - min) - 1.0
+                    kit.motor3.throttle = rMotor
+                    kit.motor1.throttle = lMotor
+
                     
-                    #elif ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickX:
-                        #ev = absevent.event.value
-                        #nromalizedX = 2.0 * (ev - min) / (max - min) - 1.0
-                        
-                    #v = (1-abs(normalizedX)) * (normalizedY/1) + normalizedY
-                    #w = (1-abs(normalizedY)) * (normalizedX/1) + normalizedX              
+                # if ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickY or ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickX:
+                #     ev = absevent.event.value
+                #     normalizedY = 2.0 * (ev - min) / (max - min) - 1.0
                 
+                #elif ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickX:
+                    #ev = absevent.event.value
+                    #nromalizedX = 2.0 * (ev - min) / (max - min) - 1.0
                     
-                    #if ecodes.bytype[absevent.event.type][absevent.event.code] == leftTrigger:
-                       # ev = absevent.event.value
-                       # if ev > 1000:
-                       #     ev = 1000
-                       # print(ev/1000)
-                      #  kit.motor1.throttle = ev/1000
-                        
-                #    elif ecodes.bytype[absevent.event.type][absevent.event.code] == rightTrigger:
-                    #    ev = absevent.event.value
-                     #   if ev > 1000:
-                      #      ev = 1000
-                       # print(ev/1000)
-                       # kit.motor3.throttle = ev/1000        
-        except:
-            print("Gamepad disconnected! Please reconnect.")
-            kit.motor1.throttle = 0
-            kit.motor3.throttle = 0
-            checkController()
+                #v = (1-abs(normalizedX)) * (normalizedY/1) + normalizedY
+                #w = (1-abs(normalizedY)) * (normalizedX/1) + normalizedX              
+            
+                
+                #if ecodes.bytype[absevent.event.type][absevent.event.code] == leftTrigger:
+                    # ev = absevent.event.value
+                    # if ev > 1000:
+                    #     ev = 1000
+                    # print(ev/1000)
+                    #  kit.motor1.throttle = ev/1000
+                    
+            #    elif ecodes.bytype[absevent.event.type][absevent.event.code] == rightTrigger:
+                #    ev = absevent.event.value
+                    #   if ev > 1000:
+                    #      ev = 1000
+                    # print(ev/1000)
+                    # kit.motor3.throttle = ev/1000        
+        #except:
+           # print("Gamepad disconnected! Please reconnect.")
+           # kit.motor1.throttle = 0
+           # kit.motor3.throttle = 0
+           # checkController()
 
 #MAIN LOOP
 print("Testing for bluetooth controller.")
