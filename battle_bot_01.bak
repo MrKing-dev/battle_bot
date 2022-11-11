@@ -31,6 +31,7 @@ min = 0
 max = 65535
 minZ = 0
 maxZ = 1023
+arcadeToggle = True
 
 sleep(1)
 
@@ -144,6 +145,7 @@ def checkController():
             
 #FUNCTION FOR MAIN DRIVE AND TOGGLING LIGHTS/ SHUTDOWN
 def goBot():
+    global arcadeToggle
     while True:
         print("In goBot")
         #try:
@@ -154,17 +156,36 @@ def goBot():
                 if event.value == 1:
                     if event.code == southBtn:
                         print("A")
+                        kit.motor2.throttle = 0.5
                     elif  event.code == westBtn:
-                        print("X")
+                        kit.motor2.throttle = -0.5
                         
                     elif event.code == leftBump:
                         print("lBump")
+                        kit.motor1.throttle = -1
                     elif event.code == rightBump:
                         print("rBump")
+                        kit.motor3.throttle = -1
                     elif event.code == northBtn:
-                        print("Y")
+                        if arcadeToggle == True:
+                            arcadeToggle = False
+                            print('Switched to trigger drive')
+                        else: 
+                            arcadeToggle = True
+                            print('Switched to arcade drive')
                     elif event.code == selBtn:
-                        print("Select")                                
+                        print("Select")
+                        
+                        if __name__ == '__main__':
+                            process = PoliceFlash()
+                            if light_toggle == 0:
+                                process.start()
+                                print('Running police flashers')
+                                light_toggle = 1
+                            else:
+                                process.shutdown()
+                                print('Stop police flashers')
+                                light_toggle = 0                                  
                             
                     elif event.code == startBtn:
                         print("Start")
@@ -177,37 +198,84 @@ def goBot():
                 elif event.value == 0:
                     if event.code == leftBump:
                         print("Released")
+                        kit.motor1.throttle = 0
                     elif event.code == rightBump:
                         print("Released")
+                        kit.motor3.throttle = 0
                     elif event.code == southBtn:
                         print("Released")  
+                        kit.motor2.throttle = 0
+                    elif event.code == westBtn:
+                        kit.motor2.throttle = 0                          
                         
             elif event.type == ecodes.EV_ABS:
-                print('Joystick movement detected')
-                xAxis = gamepad.absinfo(ecodes.ABS_Z).value
-                print('Captured xAxis value')
-                yAxis = gamepad.absinfo(ecodes.ABS_Y).value
-                print('Captured yAxis value')
-                normalizedX = -(2.0 * (xAxis - min) / (max - min) - 1.0)
-                normalizedY = (2.0 * (yAxis - min) / (max - min) - 1.0)
-                print('Normalized values')
-                #TODO add deadzone
-                print("X: " + str(normalizedX))
-                print("Y: " + str(normalizedY))
-                print()
-                
-                if normalizedX > 1.0:
-                    normalizedX = 1.0
-                if normalizedY > 1.0:
-                    normalizedY = 1.0
-                if normalizedX < -1.0:
-                    normalizedX = -1.0
-                if normalizedY < -1.0:
-                    normalizedY = -1.0
+                if arcadeToggle == True:
+                    print('Joystick movement detected')
+                    normalizedX = 0.0
+                    normalizedY = 0.0
+                    xAxis = gamepad.absinfo(ecodes.ABS_X).value
+                    print('Captured xAxis value')
+                    yAxis = gamepad.absinfo(ecodes.ABS_Y).value
+                    print('Captured yAxis value')
+                    normalizedX = 2.0 * (xAxis - min) / (max - min) - 1.0
+                    normalizedY = -(2.0 * (yAxis - min) / (max - min) - 1.0)
+                    print('Normalized values')
+                    #TODO add deadzone
+                    print("X: " + str(normalizedX))
+                    print("Y: " + str(normalizedY))
+                    print()
+                    rMotor = ((normalizedY) - (normalizedX))
+                    lMotor = ((normalizedY) + (normalizedX))
+                    if rMotor > 1.0:
+                        rMotor = 1.0
+                    if lMotor > 1.0:
+                        lMotor = 1.0
+                    if rMotor < -1.0:
+                        rMotor = -1.0
+                    if lMotor < -1.0:
+                        lMotor = -1.0
+                    print('RightMotor: ' + str(rMotor))
+                    print('LeftMotor: ' + str(lMotor))
 
-                kit.motor3.throttle = normalizedY
-                kit.motor1.throttle = normalizedX
-                                   
+                    kit.motor3.throttle = rMotor
+                    kit.motor1.throttle = lMotor
+                else:
+                    print('Trigger mode initialized')
+                    normalizedX = 0.0
+                    normalizedY = 0.0
+                    xAxis = gamepad.absinfo(ecodes.ABS_X).value
+                    print('Captured xAxis value')
+                    yAxisForward = gamepad.absinfo(ecodes.ABS_GAS).value
+                    yAxisReverse = gamepad.absinfo(ecodes.ABS_BRAKE).value
+                    print('Y Forward: ' + str(yAxisForward))
+                    print('Y Reverse: ' + str(yAxisReverse))
+                    yAxis = yAxisForward - yAxisReverse
+                    print('Captured trigger input')
+                    print('yAxisRaw: ' + str(yAxis))
+                    normalizedX = 2.0 * (xAxis - min) / (max - min) - 1.0
+                    normalizedY = (yAxis - minZ) / (maxZ - minZ)
+                    print('Normalized values')
+                    #TODO add deadzone
+                    print("X: " + str(normalizedX))
+                    print("Y: " + str(normalizedY))
+                    print()
+                    rMotor = ((normalizedY) - (normalizedX))
+                    lMotor = ((normalizedY) + (normalizedX))
+                    if rMotor > 0.95:
+                        rMotor = 1.0
+                    if lMotor > 0.95:
+                        lMotor = 1.0
+                    if rMotor < -0.95:
+                        rMotor = -1.0
+                    if lMotor < -0.95:
+                        lMotor = -1.0
+                    print('RightMotor: ' + str(rMotor))
+                    print('LeftMotor: ' + str(lMotor))
+
+                    kit.motor3.throttle = rMotor
+                    kit.motor1.throttle = lMotor
+
+                    
                 # if ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickY or ecodes.bytype[absevent.event.type][absevent.event.code] == leftStickX:
                 #     ev = absevent.event.value
                 #     normalizedY = 2.0 * (ev - min) / (max - min) - 1.0
